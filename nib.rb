@@ -7,10 +7,13 @@
       file = File.read(json_file)
       data = JSON.parse(file)
 
+      # Setup env
+      orders = []
+      products = []
+      purchase_orders = []
+
       # Ingest data
       json_products = data["products"]
-
-      products = []
 
       json_products.each do |p|
         product = Product.new()
@@ -24,40 +27,46 @@
         products << product
       end
 
-
       json_orders = data["orders"]
-
-      orders = []
 
       json_orders.each do |o|
         order = Order.new(id: o["orderId"], status: o["status"], items: parse_items(o["items"]), date_created: o["dateCreated"])
 
         orders << order
       end
+
       p 'Ingested Orders'
       p orders
       p 'Ingested Products'
       p products
 
-      # loop through orders
-      #   loop through items for order
-      #     find the item product in the products array
-      #     if order item quantity < available product quantity
-      #       update available product quantity ready for next iteration
-      #       set order status ‘Fulfilled’
-      #     else
-      #       PurchaseOrder.new()
-      #       set order status ‘Unfulfilled’
-      #     end
-      #   end
-      # end
+      orders.each do |order|
+        order.items.each do |item|
+          product = products.detect { |p| p.id == item.product_id }
+          if item.quantity <= product.quantity_on_hand 
+            product.quantity_on_hand = product.quantity_on_hand - item.quantity
+            order.status = 'Pending'
+          else
+            purchase_orders << PurchaseOrder.new(id: rand(8), status: 'Unfulfilled')
+            order.status = 'Unfulfilled'
+          end
+        end
+      end
 
-      # return orders
+      p 'Processed Orders'
+      p orders
+      p 'Processed Products'
+      p products
+      p 'Generated Purchase Orders'
+      p purchase_orders
 
+      return orders
     end
+
     def self.parse_items json_items
       json_items.map{ |ji| Item.new({order_id: ji["orderId"], product_id: ji["productId"], quantity: ji["quantity"], cost_per_item: ji["costPerItem"]})}
     end
+  
   end
 
   class Order
@@ -86,6 +95,8 @@
 
   class PurchaseOrder
     attr_accessor :id, :status
+    def initialize params
+      @id = params[:id]
+      @status = params[:status]
+    end
   end
-
-
